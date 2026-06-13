@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Design tokens                                                       */
+/* ------------------------------------------------------------------ */
+:root {
+  --bg: #060607;            /* page background */
+  --surface: #0E0E10;       /* cards, input bar */
+  --surface-2: #131316;     /* hover / nested surfaces */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-1: #F7F7F8;        /* primary text */
+  --text-2: #A1A1AA;        /* secondary */
+  --text-3: #6B6B72;        /* muted / meta */
+  --grid-line: rgba(255, 255, 255, 0.035);
+  --glow: rgba(255, 255, 255, 0.25);
+  --green: #4ADE80;         /* status dot only */
+  --amber: #FBBF24;         /* clarify state only */
+  --red: #F87171;           /* blocked state only */
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-instrument-serif);
+}
+
+/* ------------------------------------------------------------------ */
+/* Base                                                                */
+/* ------------------------------------------------------------------ */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  /* faint full-page 96px square grid */
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 96px 96px;
+}
+
+::selection {
+  background: #ffffff;
+  color: #000000;
+}
+
+:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Type utilities                                                      */
+/* ------------------------------------------------------------------ */
+.label-mono {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-3);
+}
+
+.tnum {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* Signature effects                                                   */
+/* ------------------------------------------------------------------ */
+.btn-glow {
+  background: #ffffff;
+  color: #000000;
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 28px rgba(255, 255, 255, 0.22),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+.btn-glow:hover {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 28px rgba(255, 255, 255, 0.38),
+    0 8px 24px rgba(0, 0, 0, 0.45);
+  transform: translateY(-1px);
+}
+.btn-glow:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 9999px;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+.btn-secondary:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.glow-line {
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+}
+
+/* ------------------------------------------------------------------ */
+/* Topographic background                                              */
+/* ------------------------------------------------------------------ */
+.topo-mask {
+  mask-image: radial-gradient(120% 80% at 50% 35%, black 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(120% 80% at 50% 35%, black 30%, transparent 75%);
+}
+
+@keyframes topo-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(14px, 14px) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .topo-drift {
+    animation: topo-drift 60s ease-in-out alternate infinite;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion                                                              */
+/* ------------------------------------------------------------------ */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 300ms ease-out both;
+}
+
+@keyframes cursor-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.cursor-blink {
+  animation: cursor-blink 900ms step-end infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
+  }
+  50% {
+    opacity: 0.45;
+    box-shadow: 0 0 2px rgba(74, 222, 128, 0.2);
+  }
+}
+
+.dot-pulse {
+  animation: dot-pulse 2.4s ease-in-out infinite;
+}
+
+.bar-fill {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.55));
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.22);
+  transition: width 600ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .cursor-blink,
+  .dot-pulse {
+    animation: none;
+  }
+  .bar-fill {
+    transition: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Table fade mask                                                     */
+/* ------------------------------------------------------------------ */
+.table-fade {
+  mask-image: linear-gradient(black 85%, transparent);
+  -webkit-mask-image: linear-gradient(black 85%, transparent);
+}
+
+/* SQL details chevron rotation */
+details.sql-details > summary .chevron {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+details.sql-details[open] > summary .chevron {
+  transform: rotate(90deg);
+}
+details.sql-details > summary::-webkit-details-marker {
+  display: none;
+}
+details.sql-details > summary {
+  list-style: none;
+}
