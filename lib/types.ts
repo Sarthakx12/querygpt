@@ -29,7 +29,7 @@ export type ApiResponse =
       /** True when the SQL failed once and was self-corrected. */
       retried: boolean;
       /** Rendering hint from the backend. */
-      chart: "bar" | "none";
+      chart: "bar" | "line" | "none";
       /** Assistant text pushed into the rolling history window. */
       echo?: string;
     }
