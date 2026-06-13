@@ -28,8 +28,14 @@ export type ApiResponse =
       ms: number;
       /** True when the SQL failed once and was self-corrected. */
       retried: boolean;
-      /** Rendering hint from the backend. */
-      chart: "bar" | "line" | "none";
+      /** Backend routing hint. */
+      result_type: "metric" | "table" | "chart";
+      /** Chart metadata. */
+      chart_metadata?: { type: "bar" | "line"; x_column: string; y_column: string } | null;
+      /** Confidence score. */
+      confidence: "high" | "medium" | "low" | null;
+      /** Tables involved in the query. */
+      tables_used: string[];
       /** Assistant text pushed into the rolling history window. */
       echo?: string;
     }
