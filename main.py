@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 load_dotenv(".env.local")
 
@@ -22,6 +22,7 @@ PROMPT_PATH = "system_prompt.txt"
 client = OpenAI(
     api_key=os.getenv("GROQ_API_KEY"),
     base_url="https://api.groq.com/openai/v1",
+    timeout=20.0,
 )
 
 with open(PROMPT_PATH, "r") as f:
@@ -40,102 +41,67 @@ class QueryRequest(BaseModel):
     question: str
     history: List[ChatMessage]
 
-# Local Fallback Logic
-def get_local_response(question: str) -> Optional[dict]:
-    q = question.lower()
-    
-    # 1. User Counts
-    if any(x in q for x in ["total users", "kitne users", "how many users"]):
-        return {
-            "needs_clarification": False,
-            "clarification_question": None,
-            "sql": "SELECT COUNT(*) AS total_users FROM users;",
-            "explanation": "NikahForever par kul 2,000 registered users hain.",
-            "result_type": "metric",
-            "chart": None,
-            "confidence": "high",
-            "tables_used": ["users"]
-        }
+# Exact-match shortcuts for the UI's suggested-question chips.
+# These are deliberately matched on the FULL question text (not substrings)
+# so they never hijack a real, differently-phrased user query — they only
+# save a Groq call for the one-click demo buttons.
+CHIP_RESPONSES: Dict[str, dict] = {
+    "how many total users are registered?": {
+        "needs_clarification": False,
+        "clarification_question": None,
+        "sql": "SELECT COUNT(*) AS total_users FROM users",
+        "explanation": "Counts every row in the users table.",
+        "result_type": "metric",
+        "chart": None,
+        "confidence": "high",
+        "tables_used": ["users"]
+    },
+    "pichle mahine kitna revenue aaya?": {
+        "needs_clarification": False,
+        "clarification_question": None,
+        "sql": "SELECT SUM(amount_inr) AS total_revenue FROM payments WHERE status = 'success' AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', '-1 month')",
+        "explanation": "Sums successful payments from last calendar month.",
+        "result_type": "metric",
+        "chart": None,
+        "confidence": "high",
+        "tables_used": ["payments"]
+    },
+    "city wise users ka breakdown dikhao": {
+        "needs_clarification": False,
+        "clarification_question": None,
+        "sql": "SELECT city, COUNT(*) AS user_count FROM users GROUP BY city ORDER BY user_count DESC LIMIT 12",
+        "explanation": "Counts users per city, highest first.",
+        "result_type": "chart",
+        "chart": {"type": "bar", "x_column": "city", "y_column": "user_count"},
+        "confidence": "high",
+        "tables_used": ["users"]
+    },
+    "top 5 cities by paid users": {
+        "needs_clarification": False,
+        "clarification_question": None,
+        "sql": "SELECT u.city, COUNT(DISTINCT u.user_id) AS paid_users FROM users u JOIN subscriptions s ON u.user_id = s.user_id GROUP BY u.city ORDER BY paid_users DESC LIMIT 5",
+        "explanation": "Counts users with at least one subscription, grouped by city.",
+        "result_type": "chart",
+        "chart": {"type": "bar", "x_column": "city", "y_column": "paid_users"},
+        "confidence": "high",
+        "tables_used": ["users", "subscriptions"]
+    },
+    "active users kitne hain?": {
+        "needs_clarification": False,
+        "clarification_question": None,
+        "sql": "SELECT COUNT(*) AS active_users FROM users WHERE account_status = 'active'",
+        "explanation": "Counts users whose account_status is 'active'.",
+        "result_type": "metric",
+        "chart": None,
+        "confidence": "high",
+        "tables_used": ["users"]
+    },
+}
 
-    # 2. Revenue
-    if any(x in q for x in ["revenue", "kamai", "paisa"]):
-        return {
-            "needs_clarification": False,
-            "clarification_question": None,
-            "sql": "SELECT SUM(amount_inr) AS total_revenue FROM payments WHERE status = 'success';",
-            "explanation": "Ab tak ka total revenue ₹21,52,512 hai.",
-            "result_type": "metric",
-            "chart": None,
-            "confidence": "high",
-            "tables_used": ["payments"]
-        }
 
-    # 3. City Breakdown
-    if any(x in q for x in ["city", "shahar", "sheher"]):
-        return {
-            "needs_clarification": False,
-            "clarification_question": None,
-            "sql": "SELECT city, COUNT(*) AS user_count FROM users GROUP BY city ORDER BY user_count DESC LIMIT 8;",
-            "explanation": "Yeh raha top cities ka breakdown. Sabse zyada users Delhi se hain.",
-            "result_type": "chart",
-            "chart": {"type": "bar", "x_column": "city", "y_column": "user_count"},
-            "confidence": "high",
-            "tables_used": ["users"]
-        }
+def get_chip_response(question: str) -> Optional[dict]:
+    return CHIP_RESPONSES.get(question.strip().lower())
 
-    # 4. Gender Breakdown
-    if any(x in q for x in ["gender", "male", "female", "ladka", "ladki"]):
-        return {
-            "needs_clarification": False,
-            "clarification_question": None,
-            "sql": "SELECT gender, COUNT(*) AS count FROM users GROUP BY gender;",
-            "explanation": "User base me Male aur Female ka distribution yeh raha.",
-            "result_type": "chart",
-            "chart": {"type": "bar", "x_column": "gender", "y_column": "count"},
-            "confidence": "high",
-            "tables_used": ["users"]
-        }
-
-    # 5. Monthly Registrations (Line Chart)
-    if any(x in q for x in ["monthly", "registration trend", "time", "trend", "mahine"]):
-        return {
-            "needs_clarification": False,
-            "clarification_question": None,
-            "sql": "SELECT strftime('%Y-%m', created_at) AS month, COUNT(*) AS registrations FROM users GROUP BY month ORDER BY month DESC LIMIT 12;",
-            "explanation": "Pichle 12 mahino ka registration trend aap dekh sakte hain.",
-            "result_type": "chart",
-            "chart": {"type": "line", "x_column": "month", "y_column": "registrations"},
-            "confidence": "high",
-            "tables_used": ["users"]
-        }
-
-    # 6. Top Plans
-    if any(x in q for x in ["plan", "subscription", "package"]):
-        return {
-            "needs_clarification": False,
-            "clarification_question": None,
-            "sql": "SELECT p.plan_name, COUNT(*) AS count FROM subscriptions s JOIN plans p ON s.plan_id = p.plan_id GROUP BY p.plan_name ORDER BY count DESC;",
-            "explanation": "Silver aur Gold plans sabse popular hain.",
-            "result_type": "chart",
-            "chart": {"type": "bar", "x_column": "plan_name", "y_column": "count"},
-            "confidence": "high",
-            "tables_used": ["subscriptions", "plans"]
-        }
-
-    # 7. Recent Transactions
-    if any(x in q for x in ["payment", "transaction", "paisa", "kharch"]):
-        return {
-            "needs_clarification": False,
-            "clarification_question": None,
-            "sql": "SELECT u.full_name, p.amount_inr, p.method, p.created_at FROM payments p JOIN users u ON p.user_id = u.user_id WHERE p.status = 'success' ORDER BY p.created_at DESC LIMIT 10;",
-            "explanation": "Yeh rahe haal hi me huye successful payments.",
-            "result_type": "table",
-            "chart": None,
-            "confidence": "high",
-            "tables_used": ["payments", "users"]
-        }
-
-    return None
 
 # Safety
 FORBIDDEN = re.compile(
@@ -147,7 +113,8 @@ def is_safe_select(sql: str) -> bool:
     s = sql.strip().rstrip(";").strip()
     if ";" in s:
         return False
-    if not re.match(r"(?is)^\s*SELECT\b", s):
+    # Allow plain SELECT statements and read-only CTEs (WITH ... SELECT ...).
+    if not re.match(r"(?is)^\s*(SELECT|WITH)\b", s):
         return False
     if FORBIDDEN.search(s):
         return False
@@ -167,17 +134,20 @@ def run_query(sql: str) -> Tuple[List[str], List[List[Any]], int]:
         con.close()
 
 # LLM
-def generate(question: str, history: List[ChatMessage]) -> dict:
-    # Try local fallback first
-    local = get_local_response(question)
-    if local:
-        return local
-
+def generate(question: str, history: List[ChatMessage], error_feedback: Optional[str] = None) -> dict:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     for h in history:
         messages.append({"role": "user" if h.role == "user" else "assistant", "content": h.content})
-    
-    messages.append({"role": "user", "content": question})
+
+    user_content = question
+    if error_feedback:
+        user_content = (
+            f"{question}\n\n"
+            f"(Your previous attempt failed with this error: {error_feedback}. "
+            f"Please return a corrected JSON response that fixes this issue.)"
+        )
+
+    messages.append({"role": "user", "content": user_content})
 
     completion = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -203,15 +173,51 @@ def generate(question: str, history: List[ChatMessage]) -> dict:
         print(f"Failed to parse JSON: {text}")
         raise e
 
+# Fallback question used when we can't recover after a retry — never surfaces
+# a raw error to the user, instead invites them to rephrase or add detail.
+CLARIFY_FALLBACK = (
+    "I couldn't quite work that out. Could you rephrase, or tell me a bit more "
+    "about what you'd like to know — e.g. which table, time range, or metric?"
+)
+
+# Shown when the LLM provider is temporarily unavailable (e.g. rate limited).
+# Distinct from CLARIFY_FALLBACK because rephrasing won't help — and retrying
+# immediately would only make the underlying limit worse.
+BUSY_FALLBACK = (
+    "I'm getting a lot of requests right now and can't run the full analysis "
+    "this moment. Please try again in a minute — or ask one of the suggested "
+    "questions above, which answer instantly."
+)
+
+
+def _clarify_fallback():
+    return {"kind": "clarify", "question": CLARIFY_FALLBACK}
+
+
+def _busy_fallback():
+    return {"kind": "clarify", "question": BUSY_FALLBACK}
+
+
 @app.post("/api/query")
 async def ask(request: QueryRequest):
-    try:
-        out = generate(request.question, request.history)
-    except Exception as e:
-        return {
-            "kind": "error",
-            "message": f"Groq API Error: {str(e)}"
-        }
+    chip = get_chip_response(request.question)
+    if chip:
+        out = chip
+    else:
+        try:
+            out = generate(request.question, request.history)
+        except RateLimitError:
+            # Don't retry — a second call would just hit the same limit.
+            return _busy_fallback()
+        except Exception as e:
+            # LLM call or JSON parsing failed — give it one more shot with the
+            # error as feedback before giving up gracefully.
+            try:
+                out = generate(request.question, request.history, error_feedback=str(e))
+            except RateLimitError:
+                return _busy_fallback()
+            except Exception:
+                return _clarify_fallback()
 
     if out.get("needs_clarification"):
         return {
@@ -221,10 +227,7 @@ async def ask(request: QueryRequest):
 
     sql = out.get("sql") or ""
     if not sql:
-        return {
-            "kind": "error",
-            "message": "No SQL generated by LLM."
-        }
+        return _clarify_fallback()
 
     if not is_safe_select(sql):
         return {
@@ -233,29 +236,49 @@ async def ask(request: QueryRequest):
             "sql": sql
         }
 
+    retried = False
     try:
         cols, rows, ms = run_query(sql)
-        
-        return {
-            "kind": "result",
-            "answer": out.get("explanation") or "Here are the results.",
-            "sql": sql,
-            "columns": cols,
-            "rows": rows,
-            "rowCount": len(rows),
-            "ms": ms,
-            "retried": False,
-            "result_type": out.get("result_type"),
-            "chart_metadata": out.get("chart"),
-            "confidence": out.get("confidence"),
-            "tables_used": out.get("tables_used", [])
-        }
     except Exception as e:
-        return {
-            "kind": "error",
-            "message": f"Database Error: {str(e)}",
-            "sql": sql
-        }
+        # SQL failed at runtime — retry once with the error fed back to the LLM.
+        retried = True
+        db_error = str(e)
+        try:
+            out = generate(request.question, request.history, error_feedback=db_error)
+        except RateLimitError:
+            return _busy_fallback()
+        except Exception:
+            return _clarify_fallback()
+
+        if out.get("needs_clarification"):
+            return {
+                "kind": "clarify",
+                "question": out.get("clarification_question") or "Please provide more details."
+            }
+
+        sql = out.get("sql") or ""
+        if not sql or not is_safe_select(sql):
+            return _clarify_fallback()
+
+        try:
+            cols, rows, ms = run_query(sql)
+        except Exception:
+            return _clarify_fallback()
+
+    return {
+        "kind": "result",
+        "answer": out.get("explanation") or "Here are the results.",
+        "sql": sql,
+        "columns": cols,
+        "rows": rows,
+        "rowCount": len(rows),
+        "ms": ms,
+        "retried": retried,
+        "result_type": out.get("result_type"),
+        "chart_metadata": out.get("chart"),
+        "confidence": out.get("confidence"),
+        "tables_used": out.get("tables_used", [])
+    }
 
 if __name__ == "__main__":
     import uvicorn
