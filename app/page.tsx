@@ -189,58 +189,19 @@ export default function Home() {
 
   return (
     <div className="flex-1">
-      {/* ---------------- Fixed header ---------------- */}
-      <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]/80 px-6 backdrop-blur-md md:px-12">
-        <a href="#" className="flex items-center gap-2.5">
-          <span className="flex size-6 items-center justify-center rounded-[4px] border border-[var(--border-strong)] font-mono text-xs text-[var(--text-1)]">
-            NF
+      {/* ---------------- Full-width document ---------------- */}
+      <div className="mx-auto max-w-[1440px] pb-24">
+        {/* ---------------- Top bar ---------------- */}
+        <div className="flex items-center justify-center px-6 pt-6 pb-3 md:px-12">
+          <span className="rounded-full border border-[var(--border)] px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-3)]">
+            ● NIKAHFOREVER · INTERNAL DATA PLATFORM
           </span>
-          <span className="text-[15px] font-medium text-[var(--text-1)]">
-            QueryGPT
-          </span>
-        </a>
-        <div className="flex items-center gap-3">
-          <span className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--console-bg)] px-3 py-1.5">
-            <span
-              className="dot-pulse size-1.5 rounded-full"
-              style={{ background: "var(--green)" }}
-            />
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-2)]">
-              DB CONNECTED
-            </span>
-          </span>
-          <div className="hidden items-center gap-1 text-[var(--text-2)] md:flex">
-            <a
-              href="#safety"
-              title="Schema"
-              aria-label="Schema"
-              className="flex size-8 items-center justify-center rounded-md transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-            >
-              <Icon name="schema" className="text-[20px]" />
-            </a>
-            <a
-              href="https://github.com/sarthakx12/querygpt"
-              target="_blank"
-              rel="noreferrer"
-              title="GitHub"
-              aria-label="GitHub"
-              className="flex size-8 items-center justify-center rounded-md transition-colors hover:bg-[var(--surface-2)] hover:text-[var(--text-1)]"
-            >
-              <Icon name="terminal" className="text-[20px]" />
-            </a>
-          </div>
         </div>
-      </header>
 
-      {/* ---------------- Framed document ---------------- */}
-      <div className="mx-auto max-w-[1100px] border-x border-[var(--border)] pt-14 pb-24">
         {/* ---------------- Section 1 — Hero ---------------- */}
         <section className="relative flex min-h-[78vh] flex-col items-center justify-center border-b border-[var(--border)] px-6 py-20 md:px-12 md:py-28">
           <TopoBackground />
           <div className="relative z-10 flex flex-col items-center text-center">
-            <span className="rounded-full border border-[var(--border)] px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-3)]">
-              ● NIKAHFOREVER · INTERNAL DATA PLATFORM
-            </span>
             <h1
               className="mt-8 font-medium text-[var(--text-1)]"
               style={{
@@ -254,7 +215,7 @@ export default function Home() {
               <span className="font-serif italic">anything.</span>
             </h1>
             <p className="mt-7 max-w-xl text-[15px] leading-relaxed text-[var(--text-2)]">
-              QueryGPT turns plain English — ya Hinglish — into safe, read-only
+              QUERYZILLA 9000 turns plain English — ya Hinglish — into safe, read-only
               SQL and answers in seconds. Every query it runs is shown to you.
               No data-team ticket required.
             </p>
@@ -280,7 +241,7 @@ export default function Home() {
         {/* ---------------- Section 2 — Query Console ---------------- */}
         <section
           id="console"
-          className="scroll-mt-14 border-b border-[var(--border)] px-6 py-20 md:px-12 md:py-28"
+          className="border-b border-[var(--border)] px-6 py-20 md:px-12 md:py-28"
         >
           <p className="label-mono">QUERY CONSOLE</p>
           <h2 className="mt-3 text-[28px] font-medium tracking-[-0.02em] text-[var(--text-1)] md:text-[32px]">
@@ -376,7 +337,7 @@ export default function Home() {
                       <div className="flex w-full max-w-[92%] flex-col self-start">
                         <RoleLabel
                           icon="auto_awesome"
-                          label="NF QUERYGPT"
+                          label="QUERYZILLA 9000"
                           align="left"
                         />
                         <ResponseCard response={ex.response} />
@@ -416,7 +377,7 @@ export default function Home() {
                   </button>
                 </form>
                 <p className="mt-2 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-3)]">
-                  NF QUERYGPT V.01 · INTERNAL USE ONLY
+                  QUERYZILLA 9000 V.01 · INTERNAL USE ONLY
                 </p>
               </div>
             </div>
@@ -426,7 +387,7 @@ export default function Home() {
         {/* ---------------- Section 3 — Trust strip ---------------- */}
         <section
           id="safety"
-          className="scroll-mt-14 grid grid-cols-1 border-b border-[var(--border)] md:grid-cols-3"
+          className="grid grid-cols-1 border-b border-[var(--border)] md:grid-cols-3"
         >
           {[
             {
@@ -465,7 +426,7 @@ export default function Home() {
         {/* ---------------- Footer ---------------- */}
         <footer className="px-6 py-8 md:px-12">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--text-3)]">
-            NF QUERYGPT — BUILT FOR THE NIKAHFOREVER BUILDATHON · SQLITE ·
+            QUERYZILLA 9000 — BUILT FOR THE NIKAHFOREVER BUILDATHON · SQLITE ·
             CLAUDE
           </p>
         </footer>
