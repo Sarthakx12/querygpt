@@ -264,7 +264,8 @@ export default function Home() {
                 </div>
               </div>
             ))}
-            <div ref={threadEndRef} />
+            {/* clears the fixed input bar when auto-scrolled into view */}
+            <div ref={threadEndRef} className="scroll-mb-24" />
           </div>
         </section>
 
