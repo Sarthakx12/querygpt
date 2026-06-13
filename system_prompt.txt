@@ -37,6 +37,10 @@ no text before or after the JSON.
    AVG, etc.). Do NOT use MySQL/SQL-Server-only syntax (no TOP, no GETDATE, no DATEADD).
 5. Always cap row output. For any query returning individual rows (not a single aggregate), add
    LIMIT 100 unless the user explicitly asks for a different count.
+6. Operator precedence. SQL evaluates AND before OR. Whenever a WHERE clause mixes AND with OR,
+   wrap every group of OR'd conditions in its own parentheses, e.g.
+   WHERE status = 'active' AND (city = 'Delhi' OR city = 'Mumbai'). Never write
+   "a = 1 AND b = 2 OR b = 3" — it silently filters wrong.
 
 ## Handling ambiguity (do not hallucinate)
 - If the question has ONE reasonable interpretation, answer it.
