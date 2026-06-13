@@ -4,19 +4,20 @@
 /* Design tokens                                                       */
 /* ------------------------------------------------------------------ */
 :root {
-  --bg: #060607;            /* page background */
-  --surface: #0E0E10;       /* cards, input bar */
-  --surface-2: #131316;     /* hover / nested surfaces */
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --text-1: #F7F7F8;        /* primary text */
-  --text-2: #A1A1AA;        /* secondary */
-  --text-3: #6B6B72;        /* muted / meta */
-  --grid-line: rgba(255, 255, 255, 0.035);
+  --bg: #131315;            /* page background */
+  --console-bg: #0E0E10;    /* console frame, input bar, code blocks */
+  --surface: #1C1B1D;       /* cards */
+  --surface-2: #2A2A2B;     /* hover / nested surfaces */
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text-1: #E5E1E3;        /* primary text */
+  --text-2: #C4C7C9;        /* secondary */
+  --text-3: #8E9193;        /* muted / meta */
+  --grid-line: rgba(142, 145, 147, 0.05);
   --glow: rgba(255, 255, 255, 0.25);
-  --green: #4ADE80;         /* status dot only */
+  --green: #4DE082;         /* status dot / tertiary accent */
   --amber: #FBBF24;         /* clarify state only */
-  --red: #F87171;           /* blocked state only */
+  --red: #FFB4AB;           /* blocked state only */
 }
 
 @theme inline {
@@ -73,25 +74,73 @@ body {
 /* ------------------------------------------------------------------ */
 /* Signature effects                                                   */
 /* ------------------------------------------------------------------ */
+/* Liquid-metal / chrome button: layered silver gradient + glossy sweep */
 .btn-glow {
-  background: #ffffff;
-  color: #000000;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  color: #15151a;
   border-radius: 9999px;
+  background:
+    radial-gradient(120% 180% at 30% -40%, rgba(255, 255, 255, 0.95) 0%, transparent 55%),
+    linear-gradient(
+      180deg,
+      #fdfdfe 0%,
+      #e2e3e6 16%,
+      #aeb0b6 42%,
+      #f8f9fb 52%,
+      #c9cbd1 72%,
+      #f3f4f6 88%,
+      #ffffff 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 0 28px rgba(255, 255, 255, 0.22),
-    0 8px 24px rgba(0, 0, 0, 0.45);
-  transition: box-shadow 150ms ease, transform 150ms ease;
+    inset 0 1px 1px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.4),
+    0 10px 24px rgba(0, 0, 0, 0.45),
+    0 0 24px rgba(255, 255, 255, 0.12);
+  transition: box-shadow 200ms ease, transform 150ms ease, filter 200ms ease;
+}
+/* glossy diagonal sweep */
+.btn-glow::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.85) 48%,
+    rgba(255, 255, 255, 0.1) 58%,
+    transparent 70%
+  );
+  background-size: 250% 250%;
+  background-position: 120% 0%;
+  transition: background-position 650ms ease;
+  mix-blend-mode: overlay;
+}
+.btn-glow > * {
+  position: relative;
+  z-index: 2;
 }
 .btn-glow:hover {
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 0 28px rgba(255, 255, 255, 0.38),
-    0 8px 24px rgba(0, 0, 0, 0.45);
+  filter: brightness(1.06);
   transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.4),
+    0 12px 28px rgba(0, 0, 0, 0.5),
+    0 0 32px rgba(255, 255, 255, 0.22);
+}
+.btn-glow:hover::before {
+  background-position: -20% 0%;
 }
 .btn-glow:active {
   transform: translateY(0);
+  filter: brightness(0.96);
 }
 
 .btn-secondary {
@@ -110,27 +159,37 @@ body {
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
 }
 
-/* ------------------------------------------------------------------ */
-/* Topographic background                                              */
-/* ------------------------------------------------------------------ */
-.topo-mask {
-  mask-image: radial-gradient(120% 80% at 50% 35%, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(120% 80% at 50% 35%, black 30%, transparent 75%);
+.glow-active {
+  box-shadow: 0 0 12px 2px rgba(255, 255, 255, 0.15);
 }
 
-@keyframes topo-drift {
-  from {
-    transform: translate(0, 0) scale(1);
-  }
-  to {
-    transform: translate(14px, 14px) scale(1.04);
-  }
+.glow-hover:hover {
+  box-shadow: 0 0 16px 4px rgba(255, 255, 255, 0.2);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .topo-drift {
-    animation: topo-drift 60s ease-in-out alternate infinite;
-  }
+.glow-error {
+  box-shadow: 0 0 12px 2px rgba(255, 180, 171, 0.15);
+}
+
+/* ------------------------------------------------------------------ */
+/* Typing cursor (loading state)                                        */
+/* ------------------------------------------------------------------ */
+.typing-cursor::after {
+  content: "\2588";
+  animation: cursor-blink 1s step-end infinite;
+  margin-left: 4px;
+  color: var(--text-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* SQL syntax highlighting                                              */
+/* ------------------------------------------------------------------ */
+.sql-keyword {
+  color: var(--text-1);
+  font-weight: 700;
+}
+.sql-string {
+  color: var(--green);
 }
 
 /* ------------------------------------------------------------------ */
@@ -205,6 +264,15 @@ body {
 .table-fade {
   mask-image: linear-gradient(black 85%, transparent);
   -webkit-mask-image: linear-gradient(black 85%, transparent);
+}
+
+/* ------------------------------------------------------------------ */
+/* Material Symbols icon sizing                                        */
+/* ------------------------------------------------------------------ */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 20;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 /* SQL details chevron rotation */
