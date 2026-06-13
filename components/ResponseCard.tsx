@@ -233,6 +233,95 @@ function BarChart({
   );
 }
 
+function LineChart({
+  columns,
+  rows,
+  answer,
+}: {
+  columns: string[];
+  rows: CellValue[][];
+  answer: string;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const values = rows.map((r) => (typeof r[1] === "number" ? r[1] : 0));
+  const max = Math.max(...values, 1);
+  const padding = 40;
+  const width = 600;
+  const height = 200;
+
+  const points = values.length > 1 
+    ? values
+        .map((v, i) => {
+          const x = (i / (values.length - 1)) * (width - padding * 2) + padding;
+          const y = height - (v / max) * (height - padding * 2) - padding;
+          return `${x},${y}`;
+        })
+        .join(" ")
+    : `${padding},${height - (values[0] / max) * (height - padding * 2) - padding}`;
+
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+      {answer && (
+        <p className="mb-4 text-sm leading-relaxed text-[var(--text-2)]">
+          {answer}
+        </p>
+      )}
+      <div className="relative h-[200px] w-full overflow-hidden">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-full w-full"
+          preserveAspectRatio="none"
+        >
+          <polyline
+            fill="none"
+            stroke="var(--text-1)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={points}
+            style={{
+              strokeDasharray: 1000,
+              strokeDashoffset: mounted ? 0 : 1000,
+              transition: "stroke-dashoffset 1.5s ease-in-out",
+            }}
+          />
+          {values.map((v, i) => {
+            const x = (i / (values.length - 1)) * (width - padding * 2) + padding;
+            const y = height - (v / max) * (height - padding * 2) - padding;
+            return (
+              <circle
+                key={i}
+                cx={x}
+                cy={y}
+                r="3"
+                fill="var(--surface)"
+                stroke="var(--text-1)"
+                strokeWidth="2"
+                style={{
+                  opacity: mounted ? 1 : 0,
+                  transition: `opacity 0.3s ease-in-out ${i * 50}ms`,
+                }}
+              />
+            );
+          })}
+        </svg>
+        <div className="mt-2 flex justify-between px-[padding]">
+          {rows.map((row, i) => (
+            <span key={i} className="text-[10px] text-[var(--text-3)] uppercase font-mono">
+              {formatCell(row[0])}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Special states                                                      */
 /* ------------------------------------------------------------------ */
@@ -348,6 +437,11 @@ export default function ResponseCard({
         columns.length === 2 &&
         rowCount <= 15 &&
         rows.every((r) => typeof r[1] === "number");
+      const isLine =
+        chart === "line" &&
+        columns.length === 2 &&
+        rowCount >= 2 &&
+        rows.every((r) => typeof r[1] === "number");
 
       return (
         <div>
@@ -360,6 +454,8 @@ export default function ResponseCard({
             />
           ) : isBar ? (
             <BarChart columns={columns} rows={rows} answer={answer} />
+          ) : isLine ? (
+            <LineChart columns={columns} rows={rows} answer={answer} />
           ) : (
             <DataTable columns={columns} rows={rows} answer={answer} />
           )}
