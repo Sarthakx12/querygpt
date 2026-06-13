@@ -13,6 +13,39 @@ function formatCell(v: CellValue): string {
 }
 
 /* ------------------------------------------------------------------ */
+/* Badges                                                               */
+/* ------------------------------------------------------------------ */
+
+function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" | null }) {
+  const map = {
+    high: { bg: "#E1F5EE", fg: "#0F6E56", text: "High confidence", icon: "🟢" },
+    medium: { bg: "#FAEEDA", fg: "#854F0B", text: "Medium confidence", icon: "🟡" },
+    low: { bg: "#FAECE7", fg: "#993C1D", text: "Low confidence", icon: "🟠" },
+  };
+  const s = map[level as keyof typeof map] || map.medium;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium"
+      style={{ backgroundColor: s.bg, color: s.fg }}
+    >
+      <span>{s.icon}</span>
+      {s.text}
+    </span>
+  );
+}
+
+function TablesBadge({ tables }: { tables: string[] }) {
+  if (!tables || !tables.length) return null;
+  return (
+    <span
+      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-medium bg-[#E6F1FB] text-[#0C447C]"
+    >
+      Tables: {tables.join(", ")}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Generated SQL block                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -187,10 +220,12 @@ function BarChart({
   columns,
   rows,
   answer,
+  metadata,
 }: {
   columns: string[];
   rows: CellValue[][];
   answer: string;
+  metadata?: ApiResponse["chart_metadata"];
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -198,7 +233,10 @@ function BarChart({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const values = rows.map((r) => (typeof r[1] === "number" ? r[1] : 0));
+  const xIdx = metadata?.x_column ? columns.indexOf(metadata.x_column) : 0;
+  const yIdx = metadata?.y_column ? columns.indexOf(metadata.y_column) : 1;
+
+  const values = rows.map((r) => (typeof r[yIdx] === "number" ? (r[yIdx] as number) : 0));
   const max = Math.max(...values, 1);
 
   return (
@@ -212,7 +250,7 @@ function BarChart({
         {rows.map((row, i) => (
           <div key={i} className="flex items-center gap-3">
             <span className="w-36 truncate text-[13px] text-[var(--text-2)]">
-              {formatCell(row[0])}
+              {formatCell(row[xIdx === -1 ? 0 : xIdx])}
             </span>
             <span className="h-7 flex-1 rounded-[3px] bg-white/[0.04]">
               <span
@@ -224,7 +262,7 @@ function BarChart({
               />
             </span>
             <span className="tnum w-20 text-right text-xs text-[var(--text-1)]">
-              {formatCell(row[1])}
+              {formatCell(row[yIdx === -1 ? 1 : yIdx])}
             </span>
           </div>
         ))}
@@ -237,10 +275,12 @@ function LineChart({
   columns,
   rows,
   answer,
+  metadata,
 }: {
   columns: string[];
   rows: CellValue[][];
   answer: string;
+  metadata?: ApiResponse["chart_metadata"];
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -248,7 +288,10 @@ function LineChart({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const values = rows.map((r) => (typeof r[1] === "number" ? r[1] : 0));
+  const xIdx = metadata?.x_column ? columns.indexOf(metadata.x_column) : 0;
+  const yIdx = metadata?.y_column ? columns.indexOf(metadata.y_column) : 1;
+
+  const values = rows.map((r) => (typeof r[yIdx] === "number" ? (r[yIdx] as number) : 0));
   const max = Math.max(...values, 1);
   const padding = 40;
   const width = 600;
@@ -313,7 +356,7 @@ function LineChart({
         <div className="mt-2 flex justify-between px-[padding]">
           {rows.map((row, i) => (
             <span key={i} className="text-[10px] text-[var(--text-3)] uppercase font-mono">
-              {formatCell(row[0])}
+              {formatCell(row[xIdx === -1 ? 0 : xIdx])}
             </span>
           ))}
         </div>
@@ -329,8 +372,7 @@ function LineChart({
 function ClarifyCard({ question }: { question: string }) {
   return (
     <div
-      className="rounded-lg border border-[var(--border)] border-l-2 border-l-[rgba(251,191,36,0.7)] bg-[var(--surface)] p-5"
-      style={{ boxShadow: "0 0 20px rgba(251,191,36,0.07)" }}
+      className="rounded-lg border border-[var(--border)] border-l-2 border-l-[rgba(251,191,36,0.7)] bg-[var(--surface)] p-5 shadow-[0_0_20px_rgba(251,191,36,0.07)]"
     >
       <div className="flex items-start gap-3">
         <span
@@ -363,20 +405,15 @@ function LockIcon() {
   );
 }
 
-function BlockedCard({ message }: { message: string }) {
+function BlockedCard({ message, sql }: { message: string, sql?: string }) {
   return (
     <div
-      className="rounded-lg border bg-[var(--surface)] p-5"
-      style={{
-        borderColor: "rgba(248,113,113,0.35)",
-        boxShadow: "0 0 24px rgba(248,113,113,0.10)",
-      }}
+      className="rounded-lg border bg-[var(--surface)] p-5 border-[rgba(248,113,113,0.35)] shadow-[0_0_24px_rgba(248,113,113,0.10)]"
     >
       <div className="flex items-center gap-2.5">
         <LockIcon />
         <span
-          className="font-mono text-[11px] uppercase tracking-[0.18em]"
-          style={{ color: "rgba(248,113,113,0.9)" }}
+          className="font-mono text-[11px] uppercase tracking-[0.18em] text-[rgba(248,113,113,0.9)]"
         >
           BLOCKED BY SAFETY LAYER
         </span>
@@ -384,6 +421,11 @@ function BlockedCard({ message }: { message: string }) {
       <p className="mt-3 text-sm leading-relaxed text-[var(--text-2)]">
         {message}
       </p>
+      {sql && (
+        <pre className="mt-4 p-3 bg-red-500/5 rounded border border-red-500/20 font-mono text-[11px] text-red-400/80 overflow-x-auto">
+          {sql}
+        </pre>
+      )}
       <div className="mt-4 flex flex-wrap gap-2">
         {["PROMPT ✓", "VALIDATOR ✓", "READ-ONLY DB ✓"].map((chip) => (
           <span
@@ -398,13 +440,18 @@ function BlockedCard({ message }: { message: string }) {
   );
 }
 
-function ErrorCard({ message }: { message: string }) {
+function ErrorCard({ message, sql }: { message: string, sql?: string }) {
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
       <p className="label-mono">QUERY FAILED</p>
       <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-3)]">
         {message}
       </p>
+      {sql && (
+        <pre className="mt-4 p-3 bg-white/5 rounded border border-white/10 font-mono text-[11px] text-[var(--text-3)] overflow-x-auto">
+          {sql}
+        </pre>
+      )}
     </div>
   );
 }
@@ -424,41 +471,47 @@ export default function ResponseCard({
     case "clarify":
       return <ClarifyCard question={response.question} />;
     case "blocked":
-      return <BlockedCard message={response.message} />;
+      return <BlockedCard message={response.message} sql={(response as any).sql} />;
     case "error":
-      return <ErrorCard message={response.message} />;
+      return <ErrorCard message={response.message} sql={(response as any).sql} />;
     case "result": {
-      const { answer, sql, columns, rows, rowCount, ms, retried, chart } =
-        response;
+      const { 
+        answer, sql, columns, rows, rowCount, ms, retried, 
+        result_type, chart_metadata, confidence, tables_used 
+      } = response;
 
-      const isStat = rowCount === 1 && columns.length === 1;
-      const isBar =
-        chart === "bar" &&
-        columns.length === 2 &&
-        rowCount <= 15 &&
-        rows.every((r) => typeof r[1] === "number");
-      const isLine =
-        chart === "line" &&
-        columns.length === 2 &&
-        rowCount >= 2 &&
-        rows.every((r) => typeof r[1] === "number");
-
-      return (
-        <div>
-          {isStat ? (
+      const renderContent = () => {
+        if (result_type === "metric") {
+          return (
             <StatCard
               label={columns[0]}
               value={rows[0]?.[0] ?? null}
               answer={answer}
               ms={ms}
             />
-          ) : isBar ? (
-            <BarChart columns={columns} rows={rows} answer={answer} />
-          ) : isLine ? (
-            <LineChart columns={columns} rows={rows} answer={answer} />
-          ) : (
-            <DataTable columns={columns} rows={rows} answer={answer} />
-          )}
+          );
+        }
+
+        if (result_type === "chart" && chart_metadata) {
+          if (chart_metadata.type === "bar") {
+            return <BarChart columns={columns} rows={rows} answer={answer} metadata={chart_metadata} />;
+          }
+          if (chart_metadata.type === "line") {
+            return <LineChart columns={columns} rows={rows} answer={answer} metadata={chart_metadata} />;
+          }
+        }
+
+        // Default to Table for "table" or chart failures
+        return <DataTable columns={columns} rows={rows} answer={answer} />;
+      };
+
+      return (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            <ConfidenceBadge level={confidence} />
+            <TablesBadge tables={tables_used} />
+          </div>
+          {renderContent()}
           <SqlBlock sql={sql} rowCount={rowCount} ms={ms} retried={retried} />
         </div>
       );

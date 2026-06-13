@@ -1,106 +1,189 @@
-/**
- * Ambient hero background — fine white elevation-contour lines on matte
- * black. Nested irregular rings around two focal points, generated
- * deterministically at module scope (identical on server and client).
- */
+"use client";
 
-type Focal = {
-  cx: number;
-  cy: number;
-  /** [amplitude of 3-lobe wobble, amplitude of 5-lobe wobble, phase] */
-  wobble: [number, number, number];
-  /** ring radii, innermost → outermost */
-  radii: number[];
-  /** vertical squash so rings read as terrain, not circles */
-  squash: number;
-};
+import { useEffect, useRef } from "react";
 
-const FOCALS: Focal[] = [
-  {
-    cx: 470,
-    cy: 390,
-    wobble: [0.16, 0.07, 0.9],
-    radii: [46, 84, 126, 172, 224, 282, 348],
-    squash: 0.74,
-  },
-  {
-    cx: 1010,
-    cy: 540,
-    wobble: [0.13, 0.09, 2.6],
-    radii: [40, 76, 118, 168, 226, 294],
-    squash: 0.68,
-  },
-];
+const VERTEX_SHADER = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
 
-const SAMPLES = 18;
+const FRAGMENT_SHADER = `precision highp float;
 
-/** Sample an organic ring, then smooth it with Catmull-Rom → cubic béziers. */
-function contourPath(f: Focal, radius: number, ring: number): string {
-  const pts: [number, number][] = [];
-  for (let i = 0; i < SAMPLES; i++) {
-    const t = (i / SAMPLES) * Math.PI * 2;
-    const [a3, a5, phase] = f.wobble;
-    // each ring drifts in phase so contours nest irregularly, like terrain
-    const r =
-      radius *
-      (1 +
-        a3 * Math.sin(3 * t + phase + ring * 0.45) +
-        a5 * Math.sin(5 * t + phase * 1.7 - ring * 0.3));
-    pts.push([
-      f.cx + r * Math.cos(t),
-      f.cy + r * f.squash * Math.sin(t),
-    ]);
-  }
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+varying vec2 v_texCoord;
 
-  const n = pts.length;
-  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-  for (let i = 0; i < n; i++) {
-    const p0 = pts[(i - 1 + n) % n];
-    const p1 = pts[i];
-    const p2 = pts[(i + 1) % n];
-    const p3 = pts[(i + 2) % n];
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
-  }
-  return d + " Z";
+vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+
+float snoise(vec2 v){
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+           -0.577350269189626, 0.024390243902439);
+  vec2 i  = floor(v + dot(v, C.yy) );
+  vec2 x0 = v -   i + dot(i, C.xx);
+  vec2 i1;
+  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+  vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+  + i.x + vec3(0.0, i1.x, 1.0 ));
+  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
+    dot(x12.zw,x12.zw)), 0.0);
+  m = m*m ;
+  m = m*m ;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 a0 = x - floor(x + 0.5);
+  m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+  vec3 g;
+  g.x  = a0.x  * x0.x  + h.x  * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
 }
 
-type Contour = { d: string; opacity: number };
+void main() {
+    vec2 uv = v_texCoord;
+    vec2 mouse = u_mouse / u_resolution;
 
-const CONTOURS: Contour[] = FOCALS.flatMap((f) => {
-  const count = f.radii.length;
-  return f.radii.map((radius, i) => ({
-    d: contourPath(f, radius, i),
-    // innermost 0.16 → outermost 0.04
-    opacity: 0.16 - (0.12 * i) / (count - 1),
-  }));
-});
+    float noise = snoise(uv * 2.0 + u_time * 0.05);
+    noise += 0.5 * snoise(uv * 4.0 - u_time * 0.03);
+    noise += 0.25 * snoise(uv * 8.0 + u_time * 0.08);
 
+    float dist = distance(uv, mouse);
+    noise += (1.0 - smoothstep(0.0, 0.4, dist)) * 0.2;
+
+    float lineCount = 35.0;
+    float lines = sin(noise * lineCount);
+
+    float lineThickness = 0.05;
+    float edge = 0.02;
+    float finalLines = smoothstep(1.0 - lineThickness - edge, 1.0 - lineThickness, lines);
+
+    float vignette = smoothstep(0.0, 0.3, uv.x) * smoothstep(1.0, 0.7, uv.x) *
+                     smoothstep(0.0, 0.3, uv.y) * smoothstep(1.0, 0.7, uv.y);
+
+    vec3 color = vec3(0.02, 0.02, 0.03);
+
+    float lineOpacity = 0.12 + 0.1 * noise;
+    color = mix(color, vec3(1.0), finalLines * lineOpacity * vignette);
+
+    float glow = smoothstep(0.9, 1.0, lines) * 0.05 * vignette;
+    color += vec3(1.0) * glow;
+
+    gl_FragColor = vec4(color, 1.0);
+}`;
+
+function compileShader(
+  gl: WebGLRenderingContext,
+  type: number,
+  source: string
+): WebGLShader | null {
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  return shader;
+}
+
+/**
+ * Ambient hero background — animated WebGL topographic contour shader on
+ * matte black, with subtle mouse-driven distortion.
+ */
 export default function TopoBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    if (!gl || !(gl instanceof WebGLRenderingContext)) return;
+
+    const program = gl.createProgram();
+    if (!program) return;
+    const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+    if (!vs || !fs) return;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+      gl.STATIC_DRAW
+    );
+    const positionLoc = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uRes = gl.getUniformLocation(program, "u_resolution");
+    const uMouse = gl.getUniformLocation(program, "u_mouse");
+
+    const mouse = { x: 0, y: 0 };
+
+    const syncSize = () => {
+      const w = canvas.clientWidth || 1280;
+      const h = canvas.clientHeight || 720;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+    };
+    syncSize();
+    mouse.x = canvas.width / 2;
+    mouse.y = canvas.height / 2;
+
+    const ro = new ResizeObserver(syncSize);
+    ro.observe(canvas);
+
+    const onMouseMove = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width && rect.height) {
+        const nx = (event.clientX - rect.left) / rect.width;
+        const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+        mouse.x = nx * canvas.width;
+        mouse.y = ny * canvas.height;
+      }
+    };
+    window.addEventListener("mousemove", onMouseMove);
+
+    let rafId = 0;
+    const render = (t: number) => {
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      if (uTime) gl.uniform1f(uTime, t * 0.001);
+      if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+      if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      if (!reduced) rafId = requestAnimationFrame(render);
+    };
+    render(0);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      ro.disconnect();
+      window.removeEventListener("mousemove", onMouseMove);
+    };
+  }, []);
+
   return (
     <div
       aria-hidden="true"
-      className="topo-mask pointer-events-none absolute inset-0 overflow-hidden"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
     >
-      <svg
-        viewBox="0 0 1440 900"
-        preserveAspectRatio="xMidYMid slice"
-        className="topo-drift h-full w-full"
-      >
-        {CONTOURS.map((c, i) => (
-          <path
-            key={i}
-            d={c.d}
-            fill="none"
-            stroke="#fff"
-            strokeWidth={1}
-            opacity={c.opacity}
-          />
-        ))}
-      </svg>
+      <canvas ref={canvasRef} className="h-full w-full" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[var(--bg)]/40 via-[var(--bg)]/60 to-[var(--bg)]" />
     </div>
   );
 }
