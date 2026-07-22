@@ -20,9 +20,9 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "NF QueryGPT — Ask your database anything",
+  title: "Airgap — ask your data, never leave the tab",
   description:
-    "QueryGPT turns plain English — ya Hinglish — into safe, read-only SQL and answers in seconds. Built for the NikahForever Buildathon.",
+    "Drop a CSV or Parquet file and ask questions in plain English. Airgap runs the database inside your browser — only column names ever reach the model, your rows never do.",
 };
 
 export default function RootLayout({

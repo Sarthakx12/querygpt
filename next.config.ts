@@ -1,14 +1,8 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: "http://127.0.0.1:8000/api/:path*",
-      },
-    ];
-  },
-};
+// No /api/* rewrite: the only server-side route is app/api/query/route.ts, a
+// schema-only proxy to Claude. All data lives in DuckDB-WASM in the browser,
+// so there is no backend to proxy to.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

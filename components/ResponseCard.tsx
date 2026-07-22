@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ApiResponse, CellValue } from "@/lib/types";
 import LoadingPipeline from "./LoadingPipeline";
+import DataGrid from "./DataGrid";
 
 const nf = new Intl.NumberFormat("en-IN");
 
@@ -17,12 +18,17 @@ function formatCell(v: CellValue): string {
 /* ------------------------------------------------------------------ */
 
 function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" | null }) {
+  // null means "no LLM was involved" (e.g. hand-typed SQL) — showing a
+  // "Medium confidence" badge in that case would claim a judgment nothing
+  // made. Render nothing instead of silently defaulting to medium.
+  if (level === null) return null;
+
   const map = {
     high: { bg: "#E1F5EE", fg: "#0F6E56", text: "High confidence", icon: "🟢" },
     medium: { bg: "#FAEEDA", fg: "#854F0B", text: "Medium confidence", icon: "🟡" },
     low: { bg: "#FAECE7", fg: "#993C1D", text: "Low confidence", icon: "🟠" },
   };
-  const s = map[level as keyof typeof map] || map.medium;
+  const s = map[level];
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[12px] font-medium"
@@ -163,9 +169,6 @@ function DataTable({
   rows: CellValue[][];
   answer: string;
 }) {
-  const numeric = columns.map((_, c) =>
-    rows.every((r) => typeof r[c] === "number" || r[c] === null)
-  );
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
       {answer && (
@@ -173,45 +176,7 @@ function DataTable({
           {answer}
         </p>
       )}
-      <div className="table-fade max-h-80 overflow-auto">
-        <table className="w-full min-w-max border-collapse text-left">
-          <thead>
-            <tr>
-              {columns.map((col, c) => (
-                <th
-                  key={col}
-                  className={`sticky top-0 border-b border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono text-[11px] font-normal uppercase tracking-[0.18em] text-[var(--text-3)] ${
-                    numeric[c] ? "text-right" : "text-left"
-                  }`}
-                >
-                  {col.replace(/_/g, " ")}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, r) => (
-              <tr
-                key={r}
-                className="border-b border-[var(--border)] transition-colors hover:bg-white/[0.03]"
-              >
-                {row.map((cell, c) => (
-                  <td
-                    key={c}
-                    className={`px-3 py-2 text-[13px] ${
-                      numeric[c]
-                        ? "tnum text-right text-[var(--text-1)]"
-                        : "text-left text-[var(--text-2)]"
-                    }`}
-                  >
-                    {formatCell(cell)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataGrid columns={columns} rows={rows} />
     </div>
   );
 }
@@ -225,7 +190,7 @@ function BarChart({
   columns: string[];
   rows: CellValue[][];
   answer: string;
-  metadata?: ApiResponse["chart_metadata"];
+  metadata?: Extract<ApiResponse, { kind: "result" }>["chart_metadata"];
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -280,7 +245,7 @@ function LineChart({
   columns: string[];
   rows: CellValue[][];
   answer: string;
-  metadata?: ApiResponse["chart_metadata"];
+  metadata?: Extract<ApiResponse, { kind: "result" }>["chart_metadata"];
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
